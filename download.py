@@ -7,9 +7,24 @@ import sys
 
 def download_file(download_url,file_name):
     """ 下载文件 """
+    file_rar = utils.get_download_save_path(file_name,'rar')
+    file_zip = utils.get_download_save_path(file_name,'zip')
+    if os.path.isfile(file_rar) or os.path.isfile(file_zip)  : #文件是否存在
+        # 已经下载成功
+        sys.stdout.write("\r[%s] [##################################################] 100%%" % file_name)
+        sys.stdout.flush()
+        return
     #把下载地址发送给requests模块
     r = requests.get(download_url)
-    total_size = int(r.headers['Content-Length'])
+    total_size = 0
+    try:
+        header_str = r.headers['Content-Length']
+        if header_str:
+            total_size = int(header_str)
+    except BaseException as e:
+        print('BaseException:',e)
+        utils.write_log(download_url,file_name,e)
+        return
     temp_size = 0
     # ZIP的application/x-zip-compressed     
     # RAR的application/octet-stream  
@@ -22,16 +37,17 @@ def download_file(download_url,file_name):
     if total_size is None :
         pass
     else:
-        if os.path.isfile(file_name): #文件是否存在
-            if total_size == utils.get_fileSize(utils.get_download_save_path(file_name,suffix)):
-                # 已经下载成功
-                sys.stdout.write("\r[%s] [##################################################] 100%%" % file_name)
-                sys.stdout.flush()
-                return
+        if total_size > 0:
+            if os.path.isfile(utils.get_download_save_path(file_name,suffix)): #文件是否存在
+                if total_size == utils.get_fileSize(utils.get_download_save_path(file_name,suffix)):
+                    # 已经下载成功
+                    sys.stdout.write("\r[%s] [##################################################] 100%%" % file_name)
+                    sys.stdout.flush()
+                    return
    
     #下载文件
     with open(utils.get_download_save_path(file_name,suffix),"wb") as f:
-        if total_size is None :
+        if total_size == 0 :
             f.write(r.content)
             sys.stdout.write(("\r[%s] [##################################################] 100%%" % file_name))
             sys.stdout.flush()

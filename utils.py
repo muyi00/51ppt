@@ -8,6 +8,8 @@ base_dir='E:/ppt'
 # 51ppt模板主页面
 base_page_url = 'http://www.51pptmoban.com'
 
+
+
 def joint_path(path1,path2):
     """ 路径拼接 """
     return '%s/%s' % (path1,path2)
@@ -72,7 +74,34 @@ def eachFile(filepath):
         print(allDir) # .decode('gbk')是解决中文显示乱码问题
 
 
-eachFile('E:\ppt')
+# eachFile('E:\ppt')
 
 
+def get_download_url_save():
+    return joint_path(base_dir,'url.txt')
+
+
+def write_url(url_name_dict_all):
+    with open(get_download_url_save(), 'w') as f:
+        for url_str ,name in url_name_dict_all.items():
+            f.write('%s#%s\n' % (url_str,name))
+        
+def read_url():
+    url_name_dict_all = {}
+    if os.path.exists(get_download_url_save()):
+        with open(get_download_url_save(),'r') as f:
+            line_str = f.read().splitlines()
+            for l in line_str:
+                ls  = l .split('#')
+                if len(ls) == 2:
+                    url_name_dict_all[ls[0]] = ls[1]
+                
+    return url_name_dict_all
+   
+def get_log_save():
+    return joint_path(base_dir,'log.txt')
+
+def write_log(url_str ,name,e_str):
+    with open(get_log_save(), 'a+') as f:
+        f.write('%s#%s#%s\n' % (url_str,name,e_str))
 

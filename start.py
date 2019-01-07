@@ -22,13 +22,18 @@ def un_zip_files():
 
 def start_download():
     url_name_dict_all = {}
-    for url_str in page.get_ppt_51_page_list():
+    if len(utils.read_url()) > 0:
+       url_name_dict_all = utils.read_url()
+    else:
+        for url_str in page.get_ppt_51_page_list():
+            url_name_dict = page.get_one_page_ppt_url_name_dict(url_str)
+            print('[%s]中发现%s个ppt模板' % (url_str,len(url_name_dict)))
 
-        url_name_dict = page.get_one_page_ppt_url_name_dict(url_str)
-        print('[%s]中发现%s个ppt模板' % (url_str,len(url_name_dict)))
+            for url_str ,name in url_name_dict.items():
+                url_name_dict_all[url_str] = name
 
-        for url_str ,name in url_name_dict.items():
-            url_name_dict_all[url_str] = name
+        utils.write_url(url_name_dict_all)
+       
 
     print('总共发现%s个ppt模板' % (len(url_name_dict_all)))
     t = threading.Thread(target=download_files(url_name_dict_all), name='download_ppt_hread')
