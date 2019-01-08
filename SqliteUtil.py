@@ -18,11 +18,11 @@ class SqliteUtil(object):
         self.c = self.conn.cursor()
         args=[]
         for item in pptUrlInfoList:
-            args.append((item.typeStr, item.name, item.detailsUrl ,item.detailsUrl))
+            args.append((item.typeStr, item.name, item.detailsUrl ,item.downloadUrl ,item.detailsUrl))
         try:
             # self.c.executemany("INSERT INTO url_info VALUES (null, ?, ? , ?, '')",args)
             self.c.executemany("INSERT INTO url_info(type, name, detailsUrl, downloadUrl) \
-            select ?, ?, ?, '' \
+            select ?, ?, ?, ? \
             where not exists  (SELECT * from url_info where detailsUrl = ?)",args)
         except Exception as e:
             print('INSERT INTO url_info 时出错：%s' % e)
