@@ -49,6 +49,17 @@ class SqliteUtil(object):
             self.c.close()
             self.conn.commit()
 
+    def selectDownloadUrl(self,detailsUrl):
+        self.c = self.conn.cursor()
+        downloadUrl = ''
+        cursor = self.c.execute("SELECT downloadUrl from url_info where detailsUrl = '%s'" % detailsUrl)
+        for row in cursor: 
+            downloadUrl = row[0]
+            if downloadUrl is None:
+                downloadUrl = ''
+        cursor.close()
+        self.c.close()
+        return downloadUrl
 
     def select_url_info(self):
         self.c = self.conn.cursor()

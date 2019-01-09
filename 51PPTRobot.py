@@ -66,6 +66,7 @@ def getChinese(s):
     for ss in regex.findall(s):
         name = name+ss
     return name
+    
 def progressBar(title,total,progress):
     done = int(50 * progress / total)
     sys.stdout.write("\r[%s] [%s%s] %d%%" % (title,'#' * done, ' ' * (50 - done), 100 * progress / total))
@@ -90,14 +91,13 @@ def get_ppt_51_page_list():
                         # break
     return ppt_51_url_list  
 
-def getOnePageDownloadInfoList(pageUrl,pageIndex):
-    '''获取一个页面的下载信息'''
-    onePageDownloadInfoList = []
+def getOnePageDetailsInfoList(pageUrl,pageIndex):
+    '''获取一个页面的所有模板的详情信息页面'''
+    onePageDetailsInfoList = []
     r= requests.get(pageUrl)
     r.encoding='GBK'
     soup = BeautifulSoup(r.text,"lxml")
     a_tag_list=soup.find_all("a")
-    tempList=[]
     for a_tag in a_tag_list:
         img = a_tag.find('img')
         if img:
@@ -109,15 +109,10 @@ def getOnePageDownloadInfoList(pageUrl,pageIndex):
                 name = getChinese(img.get("alt"))
                 # 描述页面地址
                 detailsUrl = jointPath(base_51_url,url_path)
-                tempList.append(PptUrlInfo(typeStr,name,detailsUrl))
-    #循环获取下载地址   
-    for i, item in enumerate(tempList):
-        # 获取下载地址
-        downloadUrl = getDownloadUrl(getDownloadPageUrl(item.detailsUrl))
-        onePageDownloadInfoList.append(PptUrlInfo(item.typeStr,item.name,item.detailsUrl,downloadUrl))
-        progressBar(('第%s页正在获取下载地址'% (pageIndex+1)),len(tempList), ( i+1 ))
-        
-    return onePageDownloadInfoList
+                onePageDetailsInfoList.append(PptUrlInfo(typeStr,name,detailsUrl))
+
+    return onePageDetailsInfoList
+    
 
 
 def getDownloadPageUrl(urlStr):
@@ -146,17 +141,24 @@ def getDownloadUrl(url_path):
 if __name__ == '__main__':
 
     sqliteUtil = SqliteUtil()
-
-    for index, pageUrl in enumerate(get_ppt_51_page_list()):
-        onePageDownloadInfoLis = getOnePageDownloadInfoList(pageUrl,index)
-        print()
-        sqliteUtil.insert_url_info(onePageDownloadInfoLis)
-
-    print()
+    ppt_51_url_list = get_ppt_51_page_list()
+    print('总共发现%s个页面' % len(ppt_51_url_list))
+    for index, pageUrl in enumerate(ppt_51_url_list):
+        onePageDownloadInfoList = []
+        onePageDetailsInfoList = getOnePageDetailsInfoList(pageUrl,index)
+        for i, item in enumerate(onePageDetailsInfoList):
+            # 用描述地址去查询是否已经有下载地址
+            downloadUrl = sqliteUtil.selectDownloadUrl(item.detailsUrl)
+            if downloadUrl.strip() == '':
+                # 获取下载地址
+                downloadUrl = getDownloadUrl(getDownloadPageUrl(item.detailsUrl))
+            onePageDownloadInfoList.append(PptUrlInfo(item.typeStr,item.name,item.detailsUrl,downloadUrl))
+            progressBar(('第%s页获取下载地址'% (index+1)),len(onePageDetailsInfoList), ( i+1 ))
+        sqliteUtil.insert_url_info(onePageDownloadInfoList)
 
     # os.system('cls')
     downloadInfoLis = sqliteUtil.select_url_info_all()
-    print('总共发现%s个ppt模板' % len(downloadInfoLis))
+    print('总共发现%s个模板' % len(downloadInfoLis))
 
 
 
