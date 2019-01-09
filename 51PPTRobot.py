@@ -149,6 +149,7 @@ if __name__ == '__main__':
 
     for index, pageUrl in enumerate(get_ppt_51_page_list()):
         onePageDownloadInfoLis = getOnePageDownloadInfoList(pageUrl,index)
+        print()
         sqliteUtil.insert_url_info(onePageDownloadInfoLis)
 
     print()
