@@ -158,6 +158,7 @@ if __name__ == '__main__':
 
     # os.system('cls')
     downloadInfoLis = sqliteUtil.select_url_info_all()
+    print()
     print('总共发现%s个模板' % len(downloadInfoLis))
 
 
