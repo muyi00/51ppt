@@ -11,18 +11,20 @@ class SqliteUtil(object):
             type TEXT NOT NULL,
             name TEXT NOT NULL,  
             detailsUrl TEXT NOT NULL,
-            downloadUrl TEXT
+            downloadUrl TEXT,
+            fileSize INTEGER DEFAULT 0,
+            savePath TEXT
             );''')
     
     def insert_url_info(self, pptUrlInfoList):
         self.c = self.conn.cursor()
         args=[]
         for item in pptUrlInfoList:
-            args.append((item.typeStr, item.name, item.detailsUrl ,item.downloadUrl ,item.detailsUrl))
+            args.append((item.typeStr, item.name, item.detailsUrl ,item.downloadUrl, item.fileSize, item.savePath, item.detailsUrl))
         try:
             # self.c.executemany("INSERT INTO url_info VALUES (null, ?, ? , ?, '')",args)
-            self.c.executemany("INSERT INTO url_info(type, name, detailsUrl, downloadUrl) \
-            select ?, ?, ?, ? \
+            self.c.executemany("INSERT INTO url_info(type, name, detailsUrl, downloadUrl,fileSize,savePath) \
+            select ?, ?, ?, ?, ?, ? \
             where not exists  (SELECT * from url_info where detailsUrl = ?)",args)
         except Exception as e:
             print('INSERT INTO url_info 时出错：%s' % e)
@@ -48,6 +50,18 @@ class SqliteUtil(object):
         finally:
             self.c.close()
             self.conn.commit()
+    
+    def update_url_info_fileSize(self,fileSize,downloadUrl):
+        self.c = self.conn.cursor()
+        self.c.execute("UPDATE url_info set fileSize = %s where downloadUrl = '%s' " % (fileSize,downloadUrl))
+        self.c.close()
+        self.conn.commit()
+    
+    def update_url_info_savePath(self,savePath,downloadUrl):
+        self.c = self.conn.cursor()
+        self.c.execute("UPDATE url_info set savePath = '%s' where downloadUrl = '%s' " % (savePath,downloadUrl))
+        self.c.close()
+        self.conn.commit()
 
     def selectDownloadUrl(self,detailsUrl):
         self.c = self.conn.cursor()
@@ -71,14 +85,22 @@ class SqliteUtil(object):
         self.c.close()
         return pptUrlInfoList
 
-    
-
     def select_url_info_all(self):
         self.c = self.conn.cursor()
         pptUrlInfoList=[]
-        cursor = self.c.execute("SELECT type, name, detailsUrl, downloadUrl from url_info")
+        cursor = self.c.execute("SELECT type, name, detailsUrl, downloadUrl,fileSize,savePath from url_info where savePath is null")
         for row in cursor: 
-            pptUrlInfoList.append(PptUrlInfo(row[0],row[1],row[2],row[3]))
+            pptUrlInfoList.append(PptUrlInfo(row[0],row[1],row[2],row[3],row[4],row[5]))
+        cursor.close()
+        self.c.close()
+        return pptUrlInfoList
+    
+    def select_url_info_fileSize_0(self):
+        self.c = self.conn.cursor()
+        pptUrlInfoList=[]
+        cursor = self.c.execute("SELECT type, name, detailsUrl, downloadUrl,fileSize from url_info where fileSize = 0")
+        for row in cursor: 
+            pptUrlInfoList.append(PptUrlInfo(row[0],row[1],row[2],row[3],row[4]))
         cursor.close()
         self.c.close()
         return pptUrlInfoList
@@ -89,6 +111,11 @@ class SqliteUtil(object):
         self.c.close()
         self.conn.commit()
 
-
+    def addColumn(self):
+        '''增加列'''
+        self.c = self.conn.cursor()
+        self.c.execute("ALTER TABLE url_info ADD COLUMN savePath TEXT")
+        self.c.close()
+        self.conn.commit()
 
    

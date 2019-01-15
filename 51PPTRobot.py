@@ -13,6 +13,14 @@ import re
 from SqliteUtil import SqliteUtil
 from PptUrlInfo import PptUrlInfo
 import sys
+import gevent
+import threading
+import socket
+import zipfile
+
+
+socket.setdefaulttimeout(20)  # 设置socket层的超时时间为20秒
+
 
 
 
@@ -147,13 +155,10 @@ def writelog(url_str ,name,e_str):
 
 def downloadFile(index,dirNmae,name,download_url):
     """ 下载文件 """
-    filePathName = getPptFilePathName(dirNmae,name,'zip')
-    if os.path.isfile(filePathName)  : #文件是否存在
-        # 已经下载成功
-        progressBar(('%s-%s') % (index,name),100,100)
-        return
     #把下载地址发送给requests模块
-    r = requests.get(download_url)
+    # Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0
+    header = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0'}
+    r = requests.get(download_url,headers=header)
     total_size = 0
     try:
         header_str = r.headers['Content-Length']
@@ -161,7 +166,7 @@ def downloadFile(index,dirNmae,name,download_url):
             total_size = int(header_str)
     except BaseException as e:
         writelog(download_url,name,e)
-        return
+        return ''
     temp_size = 0
     # ZIP的application/x-zip-compressed     
     # RAR的application/octet-stream  
@@ -171,7 +176,8 @@ def downloadFile(index,dirNmae,name,download_url):
         suffix = 'zip'
    
     #下载文件
-    with open(getPptFilePathName(dirNmae,name,suffix),"wb") as f:
+    filePathName = getPptFilePathName(dirNmae,name,suffix)
+    with open(filePathName,"wb") as f:
         if total_size == 0 :
             f.write(r.content)
             progressBar(('%s-%s') % (index,name),100,100)
@@ -182,17 +188,57 @@ def downloadFile(index,dirNmae,name,download_url):
                     f.write(chunk)
                     f.flush()
                     progressBar(('%s-%s') % (index,name),total_size,temp_size)
+    r.close()
+    return filePathName
                    
 
 
+def grouping(listTemp, n):
+    for i in range(0, len(listTemp), n):
+        yield listTemp[i:i + n]
 
+def downloadTask(baseDowloadDir,downloadInfoLis):
+    for index ,item in enumerate(downloadInfoLis):
+        saveDir = jointPath(baseDowloadDir,item.typeStr)
+        makedirs(saveDir)
+        try:
+            downloadFile(index+1, saveDir,item.name,item.downloadUrl)
+            print()
+        except requests.exceptions.ChunkedEncodingError as e:
+            print(e)
+
+# def un_zip(file_name):
+#     ppt_name = ''
+#     zip_file = zipfile.ZipFile(file_name)
+#     if os.path.isdir(utils.get_unzip_save_dir()):
+#         pass
+#     else:
+#         os.mkdir(utils.get_unzip_save_dir())
+#     for names in zip_file.namelist():
+#         if 'pptx' in names[-4:]:
+#             ppt_name = names
+#         elif 'ppt' in names[-3:]:
+#             ppt_name = names
+#         else:
+#             pass
+#         zip_file.extract(names,utils.get_unzip_save_dir())
+#     zip_file.close()
+#     ppt_new_name=''
+#     try:
+#         ppt_new_name = ppt_name.encode('cp437').decode('gbk')
+#     except:
+#         ppt_new_name = ppt_name.encode('utf-8').decode('utf-8')
+    
+#     copy_file(get_file_path(ppt_name),get_new_file_path(ppt_new_name))
 
 isGetDownloadUrl = False
+isDownloadFile = True
+isUnZipFiles = False
 
 if __name__ == '__main__':
 
     sqliteUtil = SqliteUtil()
-
+    # sqliteUtil.addColumn()
     if isGetDownloadUrl:
         ppt_51_url_list = get_ppt_51_page_list()
         print('总共发现%s个页面' % len(ppt_51_url_list))
@@ -215,15 +261,44 @@ if __name__ == '__main__':
 
     downloadInfoLis = sqliteUtil.select_url_info_all()
     print('总共发现%s个模板' % len(downloadInfoLis))
-
-    # 初始化下载
     baseDowloadDir = getBaseSaveDir()
-    for index ,item in enumerate(downloadInfoLis):
-        saveDir = jointPath(baseDowloadDir,item.typeStr)
-        makedirs(saveDir)
-        downloadFile(index+1, saveDir,item.name,item.downloadUrl)
-        print()
 
+    if isDownloadFile:
+        for index ,item in enumerate(downloadInfoLis):
+            saveDir = jointPath(baseDowloadDir,item.typeStr)
+            makedirs(saveDir)
+
+            filePathName=''
+            filePathName_rar = getPptFilePathName(saveDir,item.name,'rar')
+            filePathName_zip = getPptFilePathName(saveDir,item.name,'zip')
+            print("正在下载模板 [%s]-[%s]" % (item.name,item.downloadUrl) )
+        
+            if os.path.isfile(filePathName_rar): #文件是否存在
+                # 已经下载成功
+                progressBar(('%s-%s') % (index,item.name),100,100)
+                filePathName=filePathName_rar
+            elif os.path.isfile(filePathName_zip):
+                # 已经下载成功
+                progressBar(('%s-%s') % (index,item.name),100,100)
+                filePathName=filePathName_zip
+            else:
+                filePathName = downloadFile(index+1, saveDir,item.name,item.downloadUrl)
+            if len(filePathName) > 1:
+                if os.path.isfile(filePathName) : #文件是否存在
+                    sqliteUtil.update_url_info_fileSize(os.path.getsize(filePathName),item.downloadUrl)
+                    sqliteUtil.update_url_info_savePath(filePathName,item.downloadUrl)
+            else:
+                sqliteUtil.update_url_info_fileSize(-1,item.downloadUrl)
+            print()
+                    
+
+    if isUnZipFiles:
+        fileList = sqliteUtil.select_url_info_all()
+        # file_names =  os.listdir(utils.get_download_save_dir())
+        # for name in file_names:
+        #     if 'zip' in name:
+        #         file_path = utils.joint_path(utils.get_download_save_dir(),name)
+        #         unzip.un_zip(file_path)
 
 
 
